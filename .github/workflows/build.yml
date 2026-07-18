@@ -1,0 +1,42 @@
+name: build-and-push
+
+# Builds the Minecraft (Paper/Vanilla) image and publishes it to GHCR using the
+# built-in GITHUB_TOKEN (no PAT). The server jar is resolved at runtime from
+# Mojang/PaperMC's official APIs, so the image itself only carries the JRE +
+# entrypoint — weekly rebuilds keep the base patched.
+on:
+  push:
+    branches: [main]
+    paths: [Dockerfile, entrypoint.sh, .github/workflows/build.yml]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'   # weekly base refresh
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/gamectl-hq/minecraft-kube
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:java25
+          labels: |
+            org.opencontainers.image.source=https://github.com/GameCTL-HQ/Minecraft-Kube
+            org.opencontainers.image.description=Minecraft (Paper/Vanilla) server for Kubernetes (GameCTL) — official Mojang/PaperMC sources only
