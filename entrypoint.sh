@@ -97,8 +97,10 @@ if [ "$type" = "PAPER" ] && [ -n "${SPIGET_RESOURCES:-}" ]; then
     id="$(echo "$id" | tr -d ' ')"
     if [ "$id" = "83557" ]; then
       # BlueMap is externally hosted (spiget can't serve it); fetch the paper
-      # jar from BlueMap's own GitHub releases. Skip if already present.
-      if ! ls plugins/bluemap-*-paper.jar >/dev/null 2>&1 && ! ls plugins/BlueMap-*-paper.jar >/dev/null 2>&1; then
+      # jar from BlueMap's own GitHub releases. Skip if ANY BlueMap jar is
+      # already present (any variant/case) — a second copy makes Paper reject
+      # the plugin as ambiguous.
+      if ! find plugins -maxdepth 1 -iname 'bluemap-*.jar' | grep -q .; then
         bm_url="$(curl -fsSL https://api.github.com/repos/BlueMap-Minecraft/BlueMap/releases/latest \
           | jq -r '.assets[] | select(.name | test("paper.jar$")) | .browser_download_url' | head -1)"
         [ -n "$bm_url" ] && { echo "gamectl: installing BlueMap ($(basename "$bm_url"))"; curl -fSL -o "plugins/$(basename "$bm_url")" "$bm_url"; } \
