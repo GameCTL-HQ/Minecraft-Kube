@@ -5,6 +5,7 @@
 # JVM as an unprivileged user. Env contract mirrors what GameCTL's minecraft
 # generator has always sent (itzg-compatible names):
 #   EULA, TYPE (PAPER|VANILLA|SPIGOT->paper), VERSION (LATEST|x.y.z), MEMORY,
+#   SERVER_PORT (game port, default 25565),
 #   ENABLE_RCON / RCON_PASSWORD / RCON_PORT, SPIGET_RESOURCES (plugin ids,
 #   83557=BlueMap fetched from its official GitHub releases), LEVEL, MOTD,
 #   JVM_OPTS, OVERRIDE_OPS/OVERRIDE_WHITELIST (accepted; we never touch either).
@@ -80,7 +81,17 @@ setprop() { # key value
     && sed -i "s|^$1=.*|$1=$2|" server.properties \
     || echo "$1=$2" >> server.properties
 }
-setprop server-port 25565
+# server-port was hardcoded to 25565 here, which did more than ignore the
+# operator's choice: it REWROTE the key on every boot, so even a hand-edited
+# server.properties was silently reset. GameCTL recommends a different port
+# when 25565 is taken, and the Service, the LB and ProxyCTL's DNAT (which
+# preserves the destination port) all follow that choice — leaving the JVM
+# listening where nothing is sent, with no error in any log.
+mc_port="${SERVER_PORT:-25565}"
+setprop server-port "$mc_port"
+# query.port defaults to server-port in vanilla; pin it so the two cannot
+# drift apart if the operator ever enables the query listener.
+setprop query.port "$mc_port"
 if [ "$(echo "${ENABLE_RCON:-true}" | tr '[:lower:]' '[:upper:]')" = "TRUE" ] && [ -n "${RCON_PASSWORD:-}" ]; then
   setprop enable-rcon true
   setprop rcon.port "${RCON_PORT:-25575}"
